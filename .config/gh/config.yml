@@ -1,0 +1,37 @@
+# What protocol to use when performing git operations. Supported values: ssh, https
+git_protocol: https
+# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.
+editor:
+# When to interactively prompt. This is a global config that cannot be overridden by hostname. Supported values: enabled, disabled
+prompt: enabled
+# A pager program to send command output to, e.g. "less". Set the value to "cat" to disable the pager.
+pager:
+# Aliases allow you to create nicknames for gh commands
+aliases:
+    co: pr checkout
+    repos: |
+        !gh api graphql -f owner="$1" -f query='
+          query($owner: String!, $endCursor: String) {
+            repositoryOwner(login: $owner) {
+              repositories(first: 500, after: $endCursor, ownerAffiliations: OWNER) {
+                nodes { nameWithOwner }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        '| jq -r '.data.repositoryOwner.repositories.nodes[].nameWithOwner' | sort
+    # you need to call with `gh repo\ list org` or `gh "repo list" org` 
+    "repo list": |
+        ! gh repos $1
+    einride: |
+        ! gh org-clone Einride; gh org-fetch; gh org-pull;
+    org-clone: |
+        ! gh repo list $1  -L 500  --json nameWithOwner | jq '.[].nameWithOwner' | xargs -I % sh -c 'gh repo clone % -- --recursive'
+    org-pull: "! for dir in $(ls -d */);\n      do\n          cd $dir;\n          if [ -e \".git\" ]; then\n              git fetch -va;\n              git checkout master;\n              git pull -f --recurse-submodules;\n          else\n              echo \"Can not fetch. $dir is not a git repository.\"\n          fi;\n          cd ..;\n      done;\n\n     \n"
+    org-fetch: "! for dir in $(ls -d */); \n      do\n          cd $dir; \n          if [ -e \".git\" ]; then\n              git fetch -va;\n          else\n              echo \"Can not fetch. $dir is not a git repository.\"\n          fi;\n          cd ..; \n      done; \n"
+    weather: |
+        ! curl wttr.in/$1?FQ
+# The path to a unix socket through which send HTTP connections. If blank, HTTP traffic will be handled by net/http.DefaultTransport.
+http_unix_socket:
+# What web browser gh should use when opening URLs. If blank, will refer to environment.
+browser:
